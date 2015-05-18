@@ -20,8 +20,8 @@
 
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
-#define J_X         64          // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-#define J_Y         13           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+#define J_X         129         // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+#define J_Y         16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 
 using namespace std;
 
@@ -37,10 +37,10 @@ double  create_Velocities_Y(double fmax, double vphi);
 void Concentration (double *pos_x, double *pos_y, double *n,int NSP);
 void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho);
 void Electric_Field (double *phi, double *E_X, double *E_Y);
-void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int NSP, int especie, double *E_X, double *E_Y)
+void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int NSP, int especie, double *E_X, double *E_Y);
 
 int electrones=0;
-int Iones=1;
+int Iones = 1;
 int X=0, Y=1;
 
 //************************
@@ -254,14 +254,14 @@ int test = 0;
     //-----------------------------------------------
     // Calculo de "densidad de carga 2D del plasma"
 
-    Concentration (pos_e_x, pos_e_y, ne, le);           // Calcular concentración de superpartículas electrónicas
-    Concentration (pos_i_x, pos_i_y, ni, li);           // Calcular concentración de superpartículas Iónicas
+    Concentration (pos_e_x, pos_e_y, ne, 10);           // Calcular concentración de superpartículas electrónicas
+    Concentration (pos_i_x, pos_i_y, ni, 10);           // Calcular concentración de superpartículas Iónicas
   
-    for (int j = 0; j < J_X; j++) 
+    for (int i = 0; i < J_Y; i++) 
     {
-        for (int k = 0; k < J_Y; k++) 
+        for (int j = 0; j < J_X; j++) 
         {
-          rho[j+k*J_X]= cte_rho* Factor_carga_e*(ni[j+k*J_X] - ne[j+k*J_X])/n_0;
+          rho[i*J_X+j]= cte_rho* Factor_carga_e*(ni[i*J_X+j] - ne[i*J_X+j])/n_0;
         }
     }
    
@@ -444,8 +444,9 @@ int test = 0;
       dataFile.close();
   }
   
-   Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y,le,electrones, E_x, E_y);
-   Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y,li,Iones, E_x, E_y);
+   Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, electrones, E_x, E_y);
+   
+   //Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, Iones, E_x, E_y);
 
     
     
@@ -463,12 +464,12 @@ int test = 0;
  free(pos_i_y); 
  free(vel_e_x); 
  free(vel_e_y);   
- free(vel_i_x); 
+ free(vel_i_x);
  free(vel_i_y); 
  free(ne);   
  free(ni); 
  free(rho); 
- free(phi); 
+ free(phi);
  free(E_x);
  free(E_y);
  
@@ -539,15 +540,13 @@ void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
   int j_x,j_y;
   double temp_x,temp_y;
   double jr_x,jr_y;
-  for (j_x=0; j_x<J_X; j_x++)
-    {
-      for (j_y=0; j_y<J_Y; j_y++)
-      {
-        n[j_x+j_y*J_X] = 0.;
-      }
-    } // Inicializar densidad de carga
-
-  for (int i=0;i<NSP;i++)
+  for (j_y= 0; j_y<J_Y; j_y++){
+      for(j_x=0; j_x<J_X; j_x++){
+        n[j_y*J_X+j_x]=0.0;  
+      } 
+   }
+   
+   for (int i=0;i<NSP;i++)
     {
        jr_x=pos_x[i]/hx;       // indice (real) de la posición de la superpartícula
        j_x =int(jr_x);       // indice  inferior (entero) de la celda que contiene a la superpartícula
@@ -556,15 +555,16 @@ void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
        j_y =int(jr_y);       // indice  inferior (entero) de la celda que contiene a la superpartícula
        temp_y = jr_y-j_y;
 
-       n[j_x+j_y*J_X] += (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
-       n[(j_x+1)+j_y*J_X] += temp_x*(1.-temp_y)/(hx*hx*hx);
-       n[j_x+(j_y+1)*J_X] += (1.-temp_x)*temp_y/(hx*hx*hx);
-       n[(j_x+1)+(j_y+1)*J_X] += temp_x*temp_y/(hx*hx*hx);
+       n[j_y*J_X+j_x] += (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
+       n[j_y*J_X+(j_x+1)] += temp_x*(1.-temp_y)/(hx*hx*hx);
+       n[+(j_y+1)*J_X+j_x] += (1.-temp_x)*temp_y/(hx*hx*hx);
+       n[+(j_y+1)*J_X+(j_x+1)] += temp_x*temp_y/(hx*hx*hx);
 
     }
+   
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+
 }
-
-
 ////////////////////////////////////////////////////////////////////////////////////
 void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
 {
@@ -586,10 +586,10 @@ void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
     // Columnas FFT
     for (int k = 0; k < N; k++) {
         for (int j = 0; j < M; j++)
-            f[j]=rho[(j+1)+k*M].real();
+            f[j]=rho[k*M+(j+1)].real();
         fftw_execute(p);
         for (int j = 0; j < M; j++)
-            rho[(j+1)+k*M].real()=f[j];
+            rho[k*M+(j+1)].real()=f[j];
     }
 
     // Filas FFT
@@ -633,10 +633,10 @@ void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
     //Inversa Columnas FFT
     for (int k = 0; k < N; k++) {
         for (int j = 0; j < M; j++)
-            f[j]=rho[(j+1)+k*M].real();
+            f[j]=rho[k*M+(j+1)].real();
         fftw_execute(p_i);
         for (int j = 0; j < M; j++)
-            phi[(j+1)+k*M]=f[j]/double(2*(M+1));
+            phi[k*M+(j+1)]=f[j]/double(2*(M+1));
     }
 
     for (int k = 0; k < N; k++) 
@@ -699,16 +699,25 @@ void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int N
     
    for (int i=0;i<NSP;i++)
     {
-       jr_x=pos_x[i]/hx;     // Índice (real) de la posición de la superpartícula (X)
-       j_x =int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
-       temp_x = jr_x-double(j_x);
-       jr_y=pos_y[i]/hx;     // Índice (real) de la posición de la superpartícula (Y)
-       j_y =int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
-       temp_y = jr_y-double(j_y);
+       jr_x = pos_x[i]/hx;     // Índice (real) de la posición de la superpartícula (X)
+       j_x = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+       temp_x = jr_x - double(j_x);
+       jr_y = pos_y[i] / hx;     // Índice (real) de la posición de la superpartícula (Y)
+       j_y = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+       temp_y = jr_y - double(j_y);
 
 
-       Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x+j_y*J_X]+temp_x*(1-temp_y)*E_X[(j_x+1)+j_y*J_X]+(1-temp_x)*temp_y*E_X[j_x+(j_y+1)*J_X]+temp_x*temp_y*E_X[(j_x+1)+(j_y+1)*J_X];
-       Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x+j_y*J_X]+temp_x*(1-temp_y)*E_Y[(j_x+1)+j_y*J_X]+(1-temp_x)*temp_y*E_Y[j_x+(j_y+1)*J_X]+temp_x*temp_y*E_Y[(j_x+1)+(j_y+1)*J_X];
+       Ep_X = (1-temp_x)*(1-temp_y)*E_X[j_x+j_y*J_X]+ 
+       temp_x*(1-temp_y)*E_X[(j_x+1)+j_y*J_X]+
+       (1-temp_x)*temp_y*E_X[j_x+(j_y+1)*J_X]+
+       temp_x*temp_y*E_X[(j_x+1)+(j_y+1)*J_X];
+       
+       Ep_Y = (1-temp_x)*(1-temp_y)*E_Y[j_x+j_y*J_X]+
+       temp_x*(1-temp_y)*E_Y[(j_x+1)+j_y*J_X]+
+       (1-temp_x)*temp_y*E_Y[j_x+(j_y+1)*J_X]+
+       temp_x*temp_y*E_Y[(j_x+1)+(j_y+1)*J_X];
+       
+       
        pos_x[i]=pos_x[i]+vel_x[i]*dt;
        pos_y[i]=pos_y[i]+vel_y[i]*dt;
 
