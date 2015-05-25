@@ -20,8 +20,8 @@
 
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
-#define J_X         129         // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-#define J_Y         16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+#define J_X         64         // Número de puntos de malla X. Recomendado: Del orden 2^n+1
+#define J_Y         13           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 
 using namespace std;
 
@@ -37,7 +37,7 @@ double  create_Velocities_Y(double fmax, double vphi);
 void Concentration (double *pos_x, double *pos_y, double *n,int NSP);
 void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho);
 void Electric_Field (double *phi, double *E_X, double *E_Y);
-void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int NSP, int especie, double *E_X, double *E_Y);
+void Motion(double *pos_x, double *pos_y,double *vel_x, double *vel_y, int NSP, int especie, double *E_X, double *E_Y);
 
 int electrones=0;
 int Iones = 1;
@@ -109,6 +109,7 @@ double  mv2perdidas=0;
 FILE    *outPot19,*outEnergia, *outPot0_6, *outPot0_9, *outPot1_5, *outPot3_5, *outPot5_5, *outPot15;
 FILE    *outFase_ele[81];
 FILE    *outFase_ion[81];
+FILE    * outPoisson;
 
 double hx;
 
@@ -125,23 +126,17 @@ int main()
   //ARCHIVOS DE SALIDA
   //******************
   outEnergia=fopen("Energia","w");
-  outPot0_6=fopen("potencial0-6","w");
-  outPot0_9=fopen("potencial0-9","w");
-  outPot1_5=fopen("potencial1-5","w");
-  outPot3_5=fopen("potencial3-5","w");
-  outPot5_5=fopen("potencial5-5","w");
-  outPot15=fopen("potencial15","w");
-  outPot19=fopen("potencial19","w");
+
   
-  char buffer[15];
+  char buffer[40];
   for(int i = 0; i<=80; i++){
-        sprintf(buffer,"fase_ele%d", i);
+        sprintf(buffer,"./outputs/fase_ele%d", i);
         outFase_ele[i]=fopen(buffer,"w");
   }
   
   for(int i = 0; i<=80; i++){
-        sprintf(buffer,"fase_ion%d", i);
-        outFase_ele[i]=fopen(buffer,"w");
+        sprintf(buffer,"./outputs/fase_ion%d", i);
+        outFase_ion[i]=fopen(buffer,"w");
   }
 
 
@@ -226,12 +221,12 @@ int main()
   initialize_Particles (pos_e_x,pos_e_y,pos_i_x,pos_i_y,vel_e_x,vel_e_y, vel_i_x, vel_i_y, li,le); //Velocidades y posiciones iniciales de las part´iculas (no las libera). 
   
 
- //ofstream init;
- //init.open("posicionesXYPrueba");//se escribe un archivo de salida para analizar los datos. la salida corresponde al potencial electrostatico en cada celda conocido como phi.
-    //for (int i = 0; i < max_SPe; i++){
-     // init<<pos_e_x[i]<<" "<<pos_i_x[i]<<" "<<pos_e_y[i]<<" "<<pos_i_y[i]<<"\n";
-     // }
-//init<<endl;
+ ofstream init;
+ init.open("posicionesXYPrueba");//se escribe un archivo de salida para analizar los datos. la salida corresponde al potencial electrostatico en cada celda conocido como phi.
+    for (int i = 0; i < max_SPe; i++){
+      init<<pos_e_x[i]<<" "<<pos_i_x[i]<<" "<<pos_e_y[i]<<" "<<pos_i_y[i]<<"\n";
+      }
+init<<endl;
 
 int test = 0;      
         
@@ -254,8 +249,8 @@ int test = 0;
     //-----------------------------------------------
     // Calculo de "densidad de carga 2D del plasma"
 
-    Concentration (pos_e_x, pos_e_y, ne, 10);           // Calcular concentración de superpartículas electrónicas
-    Concentration (pos_i_x, pos_i_y, ni, 10);           // Calcular concentración de superpartículas Iónicas
+    Concentration (pos_e_x, pos_e_y, ne, le);           // Calcular concentración de superpartículas electrónicas
+    Concentration (pos_i_x, pos_i_y, ni, li);           // Calcular concentración de superpartículas Iónicas
   
     for (int i = 0; i < J_Y; i++) 
     {
@@ -271,182 +266,43 @@ int test = 0;
     // Calcular campo eléctrico en puntos de malla
     Electric_Field(phi,E_x, E_y);
     
+     // imprimir el potencial electroestatico.
+     
+     if(kt%50000==0){
+       sprintf(buffer,"./outputs/Poisson%d.data", kt);
+       ofstream dataFile(buffer);
+       for (int j = 0; j < J_X; j++) {
+          double thisx = j * hx;
+          for (int k = 0; k < J_Y; k++) {
+              double thisy = k * hx;
+              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
+          }
+          dataFile << '\n';
+      }
+      dataFile.close(); 
+      }
+      
+      //imprimit la densidad.}
+      if(kt%50000==0){
+      // Escribir a archivo
+      sprintf(buffer,"./outputs/n%d.data", kt);
+      ofstream dataFile(buffer);
+      for (int j = 0; j < J_X; j++) {
+          double thisx = j * hx;
+          for (int k = 0; k < J_Y; k++) {
+              double thisy = k * hx;
+              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
+          }
+          dataFile << '\n';
+      }
+      dataFile.close();
+ 
+      }
     
-    if(kt==50000)
-    {
-  
-      // Escribir a archivo
-      cout << " Potential in file Poisson5.data" << endl;
-      ofstream dataFile("Poisson5.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
+    
 
-    if(kt==150000)
-    {
-  
-      // Escribir a archivo
-      cout << " Potential in file Poisson15.data" << endl;
-      ofstream dataFile("Poisson15.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-      if(kt==300000)
-    {
-  
-      // Escribir a archivo
-      cout << " Potential in file PoissonF30.data" << endl;
-      ofstream dataFile("Poisson30.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-        if(kt==500000)
-    {
-  
-      // Escribir a archivo
-      cout << " Potential in file PoissonF50.data" << endl;
-      ofstream dataFile("Poisson50.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-
-          if(kt==750000)
-    {
-  
-      // Escribir a archivo
-      cout << " Potential in file PoissonF75.data" << endl;
-      ofstream dataFile("Poisson75.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-   if(kt==50000)
-    {
-  
-      // Escribir a archivo
-      cout << " n in file n5.data" << endl;
-      ofstream dataFile("n5.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-   if(kt==150000)
-    {
-  
-      // Escribir a archivo
-      cout << " n in file n15.data" << endl;
-      ofstream dataFile("n15.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-   if(kt==300000)
-    {
-  
-      // Escribir a archivo
-      cout << " n in file n30.data" << endl;
-      ofstream dataFile("n30.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-   if(kt==500000)
-    {
-  
-      // Escribir a archivo
-      cout << " n in file n50.data" << endl;
-      ofstream dataFile("n50.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-
-
-   if(kt==750000)
-    {
-  
-      // Escribir a archivo
-      cout << " n in file n75.data" << endl;
-      ofstream dataFile("n75.data");
-      for (int j = 0; j < J_X; j++) {
-          double thisx = j * hx;
-          for (int k = 0; k < J_Y; k++) {
-              double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
-          }
-          dataFile << '\n';
-      }
-      dataFile.close();
-  }
-  
-   Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y, le, electrones, E_x, E_y);
-   
-   //Motion(pos_i_x, pos_i_y, vel_i_x, vel_i_y, li, Iones, E_x, E_y);
+    Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y,le, electrones, E_x,E_y);
+    Motion(pos_i_x,pos_i_y,vel_i_x, vel_i_y, li, Iones, E_x, E_y);
 
     
     
@@ -675,7 +531,6 @@ void Electric_Field (double *phi, double *E_X, double *E_Y)  // Función para ca
       //E_X[j][J_Y-1]=E_X[j][0]; 
       //E_Y[j][J_Y-1]=E_Y[j][0];
 
-
       E_X[j+(J_Y-1)*J_X]=(phi[(j-1)+(J_Y-1)*J_X]-phi[(j+1)+(J_Y-1)*J_X])/(2.*hx);
       E_Y[j+(J_Y-1)*J_X]=(phi[j+(J_Y-2)*J_X]-phi[j])/(2.*hx);
   }
@@ -683,8 +538,7 @@ void Electric_Field (double *phi, double *E_X, double *E_Y)  // Función para ca
 
 /////////////////////////////////////////////////////////////////////////////
 
-void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int NSP, int especie, double *E_X, double *E_Y)
-{
+void  Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int NSP, int especie, double *E_X, double *E_Y){
    int j_x,j_y;
    double temp_x,temp_y,Ep_X, Ep_Y,fact;
    double jr_x,jr_y;
@@ -699,27 +553,26 @@ void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int N
     
    for (int i=0;i<NSP;i++)
     {
-       jr_x = pos_x[i]/hx;     // Índice (real) de la posición de la superpartícula (X)
-       j_x = int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
-       temp_x = jr_x - double(j_x);
-       jr_y = pos_y[i] / hx;     // Índice (real) de la posición de la superpartícula (Y)
-       j_y = int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
-       temp_y = jr_y - double(j_y);
+       jr_x=pos_x[i]/hx;     // Índice (real) de la posición de la superpartícula (X)
+       j_x =int(jr_x);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (X)
+       temp_x = jr_x-double(j_x);
+       jr_y=pos_y[i]/hx;     // Índice (real) de la posición de la superpartícula (Y)
+       j_y =int(jr_y);        // Índice  inferior (entero) de la celda que contiene a la superpartícula (Y)
+       temp_y = jr_y-double(j_y);
 
 
-       Ep_X = (1-temp_x)*(1-temp_y)*E_X[j_x+j_y*J_X]+ 
+       Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x+j_y*J_X]+
        temp_x*(1-temp_y)*E_X[(j_x+1)+j_y*J_X]+
        (1-temp_x)*temp_y*E_X[j_x+(j_y+1)*J_X]+
        temp_x*temp_y*E_X[(j_x+1)+(j_y+1)*J_X];
        
-       Ep_Y = (1-temp_x)*(1-temp_y)*E_Y[j_x+j_y*J_X]+
+       Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x+j_y*J_X]+
        temp_x*(1-temp_y)*E_Y[(j_x+1)+j_y*J_X]+
        (1-temp_x)*temp_y*E_Y[j_x+(j_y+1)*J_X]+
        temp_x*temp_y*E_Y[(j_x+1)+(j_y+1)*J_X];
        
-       
-       pos_x[i]=pos_x[i]+vel_x[i]*dt;
-       pos_y[i]=pos_y[i]+vel_y[i]*dt;
+       pos_x[i]+=vel_x[i]*dt;
+       pos_y[i]+=vel_y[i]*dt;
 
        vel_x[i]=vel_x[i]+cte_E*fact*Ep_X*dt;
        //vel[i][Y]=vel[i][Y]+cte_E*fact*Factor_carga_e*Ep_Y*dt;
@@ -749,6 +602,7 @@ void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int N
        }
 
 
+
        while(pos_y[i]>L_max_y) //Ciclo en el eje Y.
        {
           pos_y[i]=pos_y[i]-L_max_y;
@@ -759,7 +613,6 @@ void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int N
 
           pos_y[i]=L_max_y+pos_y[i];
        }
-
 
 
        if(pos_x[i]>=0 && pos_x[i]<=L_max_x)
@@ -778,10 +631,10 @@ void  Motion(double *pos_x, double *pos_y,  double *vel_x, double *vel_y,  int N
               fprintf(outFase_ele[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos_x[i],vel_x[i],pos_y[i],vel_y[i]);
               //printf("Fase out\n");
           }
-
-       if(kt%10000==0&&especie==Iones)
+       if(kt % 10000 == 0 && especie == Iones)
           {
-              fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n",kt*dt,pos_x[i],vel_x[i],pos_y[i],vel_y[i]);
+              fprintf(outFase_ion[kt/10000]," %e   %e  %e  %e  %e \n", kt*dt ,pos_x[i], vel_x[i], pos_y[i], vel_y[i]);
+
           }
 
     }
