@@ -21,7 +21,7 @@
 #define max_SPe     10000           // Limite (computacional) de Superpartículas electrónicas
 #define max_SPi     10000           // Limite (computacional) de Superpartículas iónicas
 #define J_X         64         // Número de puntos de malla X. Recomendado: Del orden 2^n+1
-#define J_Y         13           // Número de puntos de malla Y. Recomendado: Del orden 2^n
+#define J_Y         16           // Número de puntos de malla Y. Recomendado: Del orden 2^n
 
 using namespace std;
 
@@ -256,7 +256,7 @@ int test = 0;
     {
         for (int j = 0; j < J_X; j++) 
         {
-          rho[i*J_X+j]= cte_rho* Factor_carga_e*(ni[i*J_X+j] - ne[i*J_X+j])/n_0;
+          rho[i+j*J_Y]= cte_rho* Factor_carga_e*(ni[i+j*J_Y] - ne[i+j*J_Y])/n_0;
         }
     }
    
@@ -298,21 +298,12 @@ int test = 0;
       dataFile.close();
  
       }
-    
-    
 
     Motion(pos_e_x, pos_e_y, vel_e_x, vel_e_y,le, electrones, E_x,E_y);
     Motion(pos_i_x,pos_i_y,vel_i_x, vel_i_y, li, Iones, E_x, E_y);
 
-    
-    
-
   } //Cierre del ciclo principal
   
-  
-
- 
- 
 
  free(pos_e_x); 
  free(pos_e_y); 
@@ -398,7 +389,7 @@ void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
   double jr_x,jr_y;
   for (j_y= 0; j_y<J_Y; j_y++){
       for(j_x=0; j_x<J_X; j_x++){
-        n[j_y*J_X+j_x]=0.0;  
+        n[j_y+j_x*J_Y]=0.0;  
       } 
    }
    
@@ -411,18 +402,19 @@ void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
        j_y =int(jr_y);       // indice  inferior (entero) de la celda que contiene a la superpartícula
        temp_y = jr_y-j_y;
 
-       n[j_y*J_X+j_x] += (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
-       n[j_y*J_X+(j_x+1)] += temp_x*(1.-temp_y)/(hx*hx*hx);
-       n[+(j_y+1)*J_X+j_x] += (1.-temp_x)*temp_y/(hx*hx*hx);
-       n[+(j_y+1)*J_X+(j_x+1)] += temp_x*temp_y/(hx*hx*hx);
+       n[j_y+j_x*J_Y] += (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
+       n[j_y+(j_x+1)*J_Y] += temp_x*(1.-temp_y)/(hx*hx*hx);
+       n[+(j_y+1)+j_x*J_Y] += (1.-temp_x)*temp_y/(hx*hx*hx);
+       n[+(j_y+1)+(j_x+1)*J_Y] += temp_x*temp_y/(hx*hx*hx);
 
     }
    
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-
 }
+
+
+
 ////////////////////////////////////////////////////////////////////////////////////
-void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
+void Poisson2D_DirichletX_PeriodicY(double *phi, complex<double> *rho)
 {
     int M=J_X-2,N=J_Y;
     double h = hx;
@@ -442,19 +434,19 @@ void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
     // Columnas FFT
     for (int k = 0; k < N; k++) {
         for (int j = 0; j < M; j++)
-            f[j]=rho[k*M+(j+1)].real();
+            f[j]=rho[(j+1)*N+k].real();
         fftw_execute(p);
         for (int j = 0; j < M; j++)
-            rho[k*M+(j+1)].real()=f[j];
+            rho[(j+1)*N+k].real()=f[j];
     }
 
     // Filas FFT
     for (int j = 0; j < M; j++) {
         for (int k = 0; k < N; k++)
-            memcpy( &f2[k], &rho[(j+1)+k*M], sizeof( fftw_complex ) ); 
+            memcpy( &f2[k], &rho[(j+1)*N+k], sizeof( fftw_complex ) ); 
         fftw_execute(p_y);
         for (int k = 0; k < N; k++)
-            memcpy( &rho[(j+1)+k*M], &f2[k], sizeof( fftw_complex ) );
+            memcpy( &rho[(j+1)*N+k], &f2[k], sizeof( fftw_complex ) );
     }
 
 
@@ -469,38 +461,37 @@ void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
             complex<double> denom = h*h*2.0+hy*hy*2.0;
             denom -= hy*hy*(2*cos((m+1)*pi/(M+1))) + h*h*(Wn + 1.0 / Wn);
             if (denom != 0.0) 
-                rho[(m+1)+n*M] *= h*h*hy*hy / denom;
+                rho[(m+1)*N+n] *= h*h*hy*hy / denom;
             Wn *= Wy;
         }
     }
 
-    // Inversa de las filas
+   // Inversa de las filas
     for (int j = 0; j < M; j++) {
         for (int k = 0; k < N; k++)
-            memcpy( &f2[k], &rho[(j+1)+k*M], sizeof( fftw_complex ) );
+            memcpy( &f2[k], &rho[(j+1)*N+k], sizeof( fftw_complex ) );
         fftw_execute(p_yi);
         for (int k = 0; k < N; k++)
         {
-            memcpy( &rho[(j+1)+k*M], &f2[k], sizeof( fftw_complex ) );
-            rho[(j+1)+k*M] /= double(N); //La transformada debe ser normalizada.
+            memcpy( &rho[(j+1)*N+k], &f2[k], sizeof( fftw_complex ) );
+            rho[(j+1)*N+k] /= double(N); //La transformada debe ser normalizada.
         }
     }
 
     //Inversa Columnas FFT
     for (int k = 0; k < N; k++) {
         for (int j = 0; j < M; j++)
-            f[j]=rho[k*M+(j+1)].real();
+            f[j]=rho[(j+1)*N+k].real();
         fftw_execute(p_i);
         for (int j = 0; j < M; j++)
-            phi[k*M+(j+1)]=f[j]/double(2*(M+1));
+            phi[(j+1)*N+k]=f[j]/double(2*(M+1));
     }
 
     for (int k = 0; k < N; k++) 
     {
-      phi[k*M]=0;
-      phi[(J_X-1)+k*M]=0;
+      phi[0*N+k]=0;
+      phi[(J_X-1)*N+k]=0;
     }
-
 
     fftw_destroy_plan(p);
     fftw_destroy_plan(p_i);
@@ -508,35 +499,32 @@ void Poisson2D_DirichletX_PeriodicY(double *phi,complex <double> *rho)
     fftw_destroy_plan(p_yi);
     fftw_free(f); fftw_free(f2);
 }
-
-//***************************************************************************
-//Calculo del campo electrico.
-void Electric_Field (double *phi, double *E_X, double *E_Y)  // Función para calcular el campo eléctrico 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void Electric_Field(double *phi, double *E_X, double *E_Y)  // Función para calcular el campo eléctrico 
 {                                                                                       //en los puntos de malla a partir del potencial. 
   for (int j=1;j<J_X-1;j++)
   {
       for (int k=1;k<J_Y-1;k++)
       {
-        E_X[j+k*J_X]=(phi[(j-1)+k*J_X]-phi[(j+1)+k*J_X])/(2.*hx);
-        E_Y[j+k*J_X]=(phi[j+(k-1)*J_X]-phi[j+(k+1)*J_X])/(2.*hx);
+        E_X[j*J_Y+k]=(phi[(j-1)*J_Y+k]-phi[(j+1)*J_Y+k])/(2.*hx);
+        E_Y[j*J_Y+k]=(phi[j*J_Y+(k-1)]-phi[j*J_Y+(k+1)])/(2.*hx);
 
-        E_X[k*J_X]=0;  //Cero en las fronteras X
-        E_Y[k*J_X]=0;
-        E_X[(J_X-1)+k*J_X]=0; 
-        E_Y[(J_X-1)+k*J_X]=0;
+        E_X[0*J_Y+k]=0.0;  //Cero en las fronteras X
+        E_Y[0*J_Y+k]=0.0;
+        E_X[(J_X-1)*J_Y+k]=0.0; 
+        E_Y[(J_X-1)*J_Y+k]=0.0;
       }          
 
-      E_X[j]=(phi[j-1]-phi[j+1])/(2.*hx); 
-      E_Y[j]=(phi[j+(J_Y-1)*J_X]-phi[j+(1*J_X)])/(2.*hx);
-      //E_X[j][J_Y-1]=E_X[j][0]; 
-      //E_Y[j][J_Y-1]=E_Y[j][0];
+      E_X[j*J_Y+0]=(phi[(j-1)*J_Y+0]-phi[((j+1)*J_Y+0)])/(2.*hx); 
+      E_Y[j*J_Y+0]=(phi[j*J_Y+(J_Y-1)]-phi[j*J_Y+1])/(2.*hx);
+   
 
-      E_X[j+(J_Y-1)*J_X]=(phi[(j-1)+(J_Y-1)*J_X]-phi[(j+1)+(J_Y-1)*J_X])/(2.*hx);
-      E_Y[j+(J_Y-1)*J_X]=(phi[j+(J_Y-2)*J_X]-phi[j])/(2.*hx);
+      E_X[j*J_Y+(J_Y-1)]=(phi[(j-1)*J_Y+(J_Y-1)]-phi[(j+1)*J_Y+(J_Y-1)])/(2.*hx);
+      E_Y[j*J_Y+(J_Y-1)]=(phi[j*J_Y+(J_Y-2)]-phi[j*J_Y+0])/(2.*hx);
   }
 }
+//***************************************************************************************************************************************************************
 
-/////////////////////////////////////////////////////////////////////////////
 
 void  Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int NSP, int especie, double *E_X, double *E_Y){
    int j_x,j_y;
@@ -561,15 +549,15 @@ void  Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int NSP
        temp_y = jr_y-double(j_y);
 
 
-       Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x+j_y*J_X]+
-       temp_x*(1-temp_y)*E_X[(j_x+1)+j_y*J_X]+
+       Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x*J_Y+j_y]+
+       temp_x*(1-temp_y)*E_X[(j_x+1)*J_Y+j_y]+
        (1-temp_x)*temp_y*E_X[j_x+(j_y+1)*J_X]+
        temp_x*temp_y*E_X[(j_x+1)+(j_y+1)*J_X];
        
-       Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x+j_y*J_X]+
-       temp_x*(1-temp_y)*E_Y[(j_x+1)+j_y*J_X]+
-       (1-temp_x)*temp_y*E_Y[j_x+(j_y+1)*J_X]+
-       temp_x*temp_y*E_Y[(j_x+1)+(j_y+1)*J_X];
+       Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x*J_Y+j_y]+
+       temp_x*(1-temp_y)*E_Y[(j_x+1)*J_Y+j_y]+
+       (1-temp_x)*temp_y*E_Y[j_x*J_Y+(j_y+1)]+
+       temp_x*temp_y*E_Y[(j_x+1)*J_Y+(j_y+1)];
        
        pos_x[i]+=vel_x[i]*dt;
        pos_y[i]+=vel_y[i]*dt;
