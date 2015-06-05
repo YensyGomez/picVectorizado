@@ -218,29 +218,16 @@ int main()
 
   int kk=0;  
  
-  initialize_Particles (pos_e_x,pos_e_y,pos_i_x,pos_i_y,vel_e_x,vel_e_y, vel_i_x, vel_i_y, li,le); //Velocidades y posiciones iniciales de las part´iculas (no las libera). 
-  
-
- ofstream init;
- init.open("posicionesXYPrueba");//se escribe un archivo de salida para analizar los datos. la salida corresponde al potencial electrostatico en cada celda conocido como phi.
-    for (int i = 0; i < max_SPe; i++){
-      init<<pos_e_x[i]<<" "<<pos_i_x[i]<<" "<<pos_e_y[i]<<" "<<pos_i_y[i]<<"\n";
-      }
-init<<endl;
-
-int test = 0;      
+  initialize_Particles (pos_e_x,pos_e_y,pos_i_x,pos_i_y,vel_e_x,vel_e_y, vel_i_x,    vel_i_y, li,le); //Velocidades y posiciones iniciales de las part´iculas (no las libera). 
         
   clock_t tiempo0 = clock();
-  for (kt=0;kt<=K_total;kt++)
-  {
-    if (kt%10000==0)
-    {
+  for (kt=0;kt<=K_total;kt++){
+    if (kt%10000==0){
       printf("kt=%d\n",kt);
       printf("le=%d   li=%d \n",le, li );
     }
 
-    if(kt<=k_max_inj && kt==kk)                   // Inyectar superpartículas (i-e)
-    {        
+    if(kt<=k_max_inj && kt==kk){        
       le+=max_SPe_dt;
       li+=max_SPi_dt;
       kk=kk+Kemision;  
@@ -252,13 +239,15 @@ int test = 0;
     Concentration (pos_e_x, pos_e_y, ne, le);           // Calcular concentración de superpartículas electrónicas
     Concentration (pos_i_x, pos_i_y, ni, li);           // Calcular concentración de superpartículas Iónicas
   
-    for (int i = 0; i < J_Y; i++) 
+    for (int j = 0; j < J_X; j++) 
     {
-        for (int j = 0; j < J_X; j++) 
+        for (int k = 0; k < J_Y; k++) 
         {
-          rho[i+j*J_Y]= cte_rho* Factor_carga_e*(ni[i+j*J_Y] - ne[i+j*J_Y])/n_0;
+          rho[j*J_Y+k]= cte_rho* Factor_carga_e*(ni[j*J_Y+k]- ne[j*J_Y+k])/n_0;
         }
     }
+
+   
    
      // Calcular potencial eléctrico en puntos de malla
     Poisson2D_DirichletX_PeriodicY(phi,rho);
@@ -275,7 +264,7 @@ int test = 0;
           double thisx = j * hx;
           for (int k = 0; k < J_Y; k++) {
               double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << phi[j+k*J_X] << '\n';
+              dataFile << thisx << '\t' << thisy << '\t' << phi[j*J_Y+k] << '\n';
           }
           dataFile << '\n';
       }
@@ -291,7 +280,7 @@ int test = 0;
           double thisx = j * hx;
           for (int k = 0; k < J_Y; k++) {
               double thisy = k * hx;
-              dataFile << thisx << '\t' << thisy << '\t' << ni[j+k*J_X] << '\t'<< ne[j+k*J_X] << '\t' << E_x[j+k*J_X]<< '\t' << E_y[j+k*J_X] <<'\n';
+              dataFile << thisx << '\t' << thisy << '\t' << ni[j*J_Y+k] << '\t'<< ne[j*J_Y+k] << '\t' << E_x[j*J_Y+k]<< '\t' << E_y[j*J_Y+k] <<'\n';
           }
           dataFile << '\n';
       }
@@ -382,7 +371,7 @@ void initialize_Particles (double *pos_e_x, double *pos_e_y, double *pos_i_x, do
 Determinación del aporte de carga de cada superpartícula sobre las 4 celdas adyacentes
 ************************************************************************************/
 
-void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
+void Concentration(double *pos_x, double *pos_y, double *n,int NSP)
 { 
   int j_x,j_y;
   double temp_x,temp_y;
@@ -404,12 +393,12 @@ void Concentration (double *pos_x, double *pos_y, double *n,int NSP)
 
        n[j_y+j_x*J_Y] += (1.-temp_x)*(1.-temp_y)/(hx*hx*hx);
        n[j_y+(j_x+1)*J_Y] += temp_x*(1.-temp_y)/(hx*hx*hx);
-       n[+(j_y+1)+j_x*J_Y] += (1.-temp_x)*temp_y/(hx*hx*hx);
-       n[+(j_y+1)+(j_x+1)*J_Y] += temp_x*temp_y/(hx*hx*hx);
+       n[(j_y+1)+j_x*J_Y] += (1.-temp_x)*temp_y/(hx*hx*hx);
+       n[(j_y+1)+(j_x+1)*J_Y] += temp_x*temp_y/(hx*hx*hx);
 
     }
-   
-}
+    
+  }
 
 
 
@@ -551,8 +540,8 @@ void  Motion(double *pos_x, double *pos_y, double *vel_x, double *vel_y, int NSP
 
        Ep_X=(1-temp_x)*(1-temp_y)*E_X[j_x*J_Y+j_y]+
        temp_x*(1-temp_y)*E_X[(j_x+1)*J_Y+j_y]+
-       (1-temp_x)*temp_y*E_X[j_x+(j_y+1)*J_X]+
-       temp_x*temp_y*E_X[(j_x+1)+(j_y+1)*J_X];
+       (1-temp_x)*temp_y*E_X[j_x*J_Y+(j_y+1)]+
+       temp_x*temp_y*E_X[(j_x+1)*J_Y+(j_y+1)];
        
        Ep_Y=(1-temp_x)*(1-temp_y)*E_Y[j_x*J_Y+j_y]+
        temp_x*(1-temp_y)*E_Y[(j_x+1)*J_Y+j_y]+
