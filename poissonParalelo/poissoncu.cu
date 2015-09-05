@@ -10,6 +10,7 @@
 #include <fftw3.h>
 #include <cuda.h>
 #include <cufft.h>
+//#include<cufftw.h>
 
 
 #define J_X          129           // Número de puntos de malla X. Recomendado: Del orden 2^n+1
@@ -73,15 +74,36 @@ int  main(){
 }
 
 
+int printVectorToFile(double *f, int M){
+  ofstream file2("salidafcu.data");
+  for (int i  =  0; i < M; i++) {
+     file2 << f[i] << '\t' << '\n';
+  }
+  file2.close();
+  return 0;
+}
+
+
+int printComplexVectorToFile(fftw_complex *f2, int M){
+  ofstream file2("salidaf2cu.data");
+  for (int i  =  0; i < M; i++) {
+     file2 << f2[i][0] << ' ' << f2[i][1]<< '\n';
+  }
+  file2.close();
+  return 0;
+}
+
 void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
   
   int M = J_X - 2, N = J_Y;
   double h = hx;
   double hy = hx;
   double *f;
-  //fftw_complex  *f2;
+  fftw_complex  *f2;
   cufftDoubleComplex *f2_d; 
+  //cufftDoubleComplex *f2_d; 
   
+  f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
   
   fftw_plan p, p_i; 
   cufftHandle p_y,p_yi ; 
@@ -89,7 +111,10 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
   f = (double*) fftw_malloc(sizeof(double)* M);
   cudaMalloc((void**)&f2_d, sizeof(cufftDoubleComplex)*N); 
   
-  int size2 = J_X*J_Y*sizeof(cufftDoubleComplex);
+  int size2 = sizeof(cufftDoubleComplex);
+  
+  //printf("tamaño cufftDoubleComplex %d\n",sizeof(cufftDoubleComplex));
+  //printf("tamaño cufftDoubleComplex %d\n",sizeof(cufftDoubleComplex));  
   
   p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);  
   cufftPlan1d(&p_y, N,CUFFT_Z2Z,1);
@@ -106,15 +131,23 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
       rho[(j + 1) * N + k].real() = f[j];
   }
   
+  
+  printVectorToFile(f,M);
+  
   // Filas FFT
   
   for (int j = 0; j < M; j++) {
-    for (int k = 0; k < N; k++)
+    for (int k = 0; k < N; k++){
       cudaMemcpy(&f2_d[k], &rho[(j + 1) * N + k],size2, cudaMemcpyHostToDevice);
+   }
     cufftExecZ2Z(p_y,f2_d,f2_d,CUFFT_FORWARD);
-    for (int k = 0; k < N; k++)
+    for (int k = 0; k < N; k++){
       cudaMemcpy(&rho[(j + 1) * N + k], &f2_d[k],size2, cudaMemcpyDeviceToHost);
+      //cudaMemcpy(&f2[k], &f2_d[k],size2, cudaMemcpyDeviceToHost);
+    }
   }
+  
+  printComplexVectorToFile(f2, N);
 
   // Resolver en el espacio de Fourier
   complex<double> i(0.0, 1.0);

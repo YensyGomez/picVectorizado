@@ -169,6 +169,25 @@ int  main(){
  
 }*/
 
+int printVectorToFile(double *f, int M){
+  ofstream file2("salidaf.data");
+  for (int i  =  0; i < M; i++) {
+     file2 << f[i] << '\t' << '\n';
+  }
+  file2.close();
+  return 0;
+}
+
+
+int printComplexVectorToFile(fftw_complex *f2, int M){
+  ofstream file2("salidaf2.data");
+  for (int i  =  0; i < M; i++) {
+     file2 << f2[i][0] << ' ' << f2[i][1]<< '\n';
+  }
+  file2.close();
+  return 0;
+}
+
 void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho) {
   int M = J_X - 2, N = J_Y;
   double h = hx;
@@ -193,6 +212,8 @@ void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho) {
     for (int j = 0; j < M; j++)
       rho[(j + 1) * N + k].real() = f[j];
   }
+  
+  printVectorToFile(f,M);
 
   // Filas FFT
   for (int j = 0; j < M; j++) {
@@ -203,6 +224,7 @@ void poisson2D_dirichletX_periodicY(double *phi, complex<double> *rho) {
       memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
   }
 
+  printComplexVectorToFile(f2,N);
 
 
   // Resolver en el espacio de Fourier
