@@ -6,7 +6,6 @@
 #include <ctime>
 #include <cstring>
 #include <fstream>
-#include <cuda_runtime_api.h>
 #include <fftw3.h>
 #include <cuda.h>
 #include <cufft.h>
@@ -211,13 +210,10 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
   fftw_plan p, p_y, p_i, p_yi;
   f = (double*) fftw_malloc(sizeof(double)* M);
   f2 = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
-
   p = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
   p_y = fftw_plan_dft_1d(N, f2, f2, FFTW_FORWARD, FFTW_ESTIMATE);
   p_i = fftw_plan_r2r_1d(M, f, f, FFTW_RODFT00, FFTW_ESTIMATE);
   p_yi = fftw_plan_dft_1d(N, f2, f2, FFTW_BACKWARD, FFTW_ESTIMATE);
-
-
   // Columnas FFT
   for (int k = 0; k < N; k++) {
     for (int j = 0; j < M; j++)
@@ -226,7 +222,6 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
     for (int j = 0; j < M; j++)
       rho[(j + 1) * N + k].real() = f[j];
   }
-
   // Filas FFT
   for (int j = 0; j < M; j++) {
     for (int k = 0; k < N; k++) 
@@ -235,9 +230,6 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
     for (int k = 0; k < N; k++)
       memcpy( &rho[(j + 1) * N + k], &f2[k], sizeof( fftw_complex ) );
   }
-
-
-
   // Resolver en el espacio de Fourier
   complex<double> i(0.0, 1.0);
   double pi = M_PI;
@@ -252,7 +244,6 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
       Wn *= Wy;
     }
   }
-
   // Inversa de las filas
   for (int j = 0; j < M; j++) {
     for (int k = 0; k < N; k++)
@@ -263,7 +254,6 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
       rho[(j + 1) * N + k] /= double(N); //La transformada debe ser normalizada.
     }
   }
-
   //Inversa Columnas FFT
   for (int k = 0; k < N; k++) {
     for (int j = 0; j < M; j++)
@@ -272,12 +262,10 @@ void poisson2D_dirichletX_periodicY_cuda(double *phi, complex<double> *rho) {
     for (int j = 0; j < M; j++)
       phi[(j + 1) * N + k] = f[j] / double(2 * (M + 1));
   }
-
   for (int k = 0; k < N; k++) {
     phi[k]=0;
     phi[(J_X - 1) * N + k]=0;
   }
-
   fftw_destroy_plan(p);
   fftw_destroy_plan(p_i);
   cufftDestroy(p_y);
